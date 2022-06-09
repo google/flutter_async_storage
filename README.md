@@ -1,53 +1,33 @@
-# New Project Template
+# flutter_async_storage
 
-This repository contains a template that can be used to seed a repository for a
-new Google open source project.
+flutter_async_storage reads data from React Native's [AsyncStorage](https://reactnative.dev/docs/asyncstorage) from within Flutter apps. This is useful for Flutter apps that have migrated from React Native and need to access data stored on disk.
 
-See [go/releasing](http://go/releasing) (available externally at
-https://opensource.google/docs/releasing/) for more information about
-releasing a new Google open source project.
+## Reading data
 
-This template uses the Apache license, as is Google's default.  See the
-documentation for instructions on using alternate license.
+To read data from AsyncStorage in Flutter, you can use a workflow like:
 
-## How to use this template
+```
+final asyncStorageReader = AsyncStorageReader(LocalPlatform());
+try {
+if (await asyncStorageReader.exists()) {
+    final data = await asyncStorageReader.data('myDataKey');
 
-1. Clone it from GitHub.
-    * There is no reason to fork it.
-1. Create a new local repository and copy the files from this repo into it.
-1. Modify README.md and docs/contributing.md to represent your project, not the
-   template project.
-1. Develop your new project!
+    // Do something with data...
 
-``` shell
-git clone https://github.com/google/new-project
-mkdir my-new-thing
-cd my-new-thing
-git init
-cp -r ../new-project/* ../new-project/.github .
-git add *
-git commit -a -m 'Boilerplate for new Google open source project'
+    // Clear AsyncStorage.
+    await asyncStorageReader.clear();
+}
+} catch (e) {
+// Handle error.
+}
 ```
 
-## Source Code Headers
+## Using data
 
-Every file containing source code must include copyright and license
-information. This includes any JS/CSS files that you might be serving out to
-browsers. (This is to help well-intentioned people avoid accidental copying that
-doesn't comply with the license.)
+Data in AsyncStorage is keyed; you can use the `data()` method on `AsyncStorageReader` to read arbitrary keys. Data returned is stringified JSON, which you can deserialize to another format. [built_value](https://pub.dev/packages/built_value) allows you to create custom deserializers which are helpful for converting data to Dart objects.
 
-Apache header:
+## Platform specific code
 
-    Copyright 2022 Google LLC
+flutter_async_storage can read from AsyncStorage on both Android and iOS. On Android, AsyncStorage data is stored in a SQLite database in the table `RKStorage`. On iOS, AsyncStorage data is stored in the filesystem (in a manifest file for smaller data, and sharded into separate files for larger data using a hash function). flutter_async_storage mimics the path taken to retrive data by React Native's AsyncStorage.
 
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        https://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
+The platform must be specified in the constructor for `AsyncStorageReader`, but the API is the same.

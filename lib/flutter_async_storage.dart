@@ -1,9 +1,23 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:disposables/disposables.dart';
 import 'package:meta/meta.dart';
-import 'package:mobile.flutter.contrib.disposable/disposable.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:platform/platform.dart';
 import 'package:sqflite/sqflite.dart';
@@ -15,11 +29,11 @@ import 'package:sqflite/sqflite.dart';
 ///
 /// Error handling on public methods should be handled by the end user.
 abstract class AsyncStorageReader {
-  factory AsyncStorageReader(Platform platform, String dataKey) {
-    if (platform.isAndroid) return AsyncStorageAndroid(dataKey);
-    if (platform.isIOS) return AsyncStorageIOS(dataKey);
+  factory AsyncStorageReader(Platform platform) {
+    if (platform.isAndroid) return AsyncStorageAndroid();
+    if (platform.isIOS) return AsyncStorageIOS();
     // Unit tests run on Linux.
-    if (platform.isLinux) return AsyncStorageTestOnly(dataKey);
+    if (platform.isLinux) return AsyncStorageTestOnly();
     throw UnimplementedError('Unrecognized platform: $platform');
   }
 
@@ -29,7 +43,7 @@ abstract class AsyncStorageReader {
   /// Stored data from AsyncStorage as a string.
   ///
   /// You can deserialize the data into another format.
-  Future<String?> get data;
+  Future<String?> data(String dataKey);
 
   /// Wipes data from AsyncStorage if it exists.
   Future<void> clear();
@@ -50,9 +64,12 @@ const _androidDataColumnName = 'value';
 /// Android implementation of [AsyncStorageReader].
 ///
 /// On Android, React Native AsyncStorage is backed by a SQLite db.
-class AsyncStorageAndroid implements AsyncStorageReader, Disposable {
+class AsyncStorageAndroid implements AsyncStorageReader, Disposable  {
   /// Whether [_db] is ready for use.
   bool _initialized = false;
+
+  @override
+  bool isDisposed = false;
 
   /// Connection to the SQLite database, or [null] if no database exists.
   late Database? _db;
@@ -78,7 +95,7 @@ class AsyncStorageAndroid implements AsyncStorageReader, Disposable {
   Future<bool> exists() async => databaseExists(_androidDbName);
 
   @override
-  Future<String?> get data async {
+  Future<String?> data(String dataKey) async {
     if (!_initialized) {
       await _initialize();
     }
@@ -105,6 +122,7 @@ class AsyncStorageAndroid implements AsyncStorageReader, Disposable {
 
   @override
   void dispose() {
+    isDisposed = true;
     _close();
   }
 }
@@ -126,13 +144,13 @@ class AsyncStorageIOS implements AsyncStorageReader {
   }
 
   @override
-  Future<String?> get data async {
+  Future<String?> data (String dataKey) async {
       // On iOS, data is either stored in the manifest file, or if too
       // large is sharded into another file in the same directory. Following
       // the same logic as AsyncStorage, we first check the manifest, then the
       // filesystem if the manifest does not contain any data.
-      return (await _dataFromManifest()) ??
-          (await _dataFromFilesystem());
+      return (await _dataFromManifest(dataKey)) ??
+          (await _dataFromFilesystem(dataKey));
   }
 
   @override
@@ -156,14 +174,14 @@ class AsyncStorageIOS implements AsyncStorageReader {
   }
 
   /// Returns data stored in the manifest file, if available.
-  Future<String?> _dataFromManifest() async {
+  Future<String?> _dataFromManifest(String dataKey) async {
       final manifestData = await (await _manifest).readAsString();
       final jsonData = json.decode(manifestData);
       return jsonData[dataKey];
   }
 
   /// Returns data sharded into the filesystem, if available.
-  Future<String?> _dataFromFilesystem() async {
+  Future<String?> _dataFromFilesystem(String dataKey) async {
       // md5 is cryptographically insecure, but is used by React Native to
       // shard files.
       final encodedFilename =
@@ -182,7 +200,7 @@ class AsyncStorageTestOnly implements AsyncStorageReader {
   Future<bool> exists() async => true;
 
   @override
-  Future<String?> get data async => '';
+  Future<String?> data(String _) async => '';
 
   @override
   Future<void> clear() async {}
