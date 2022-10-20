@@ -22,6 +22,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:platform/platform.dart';
 import 'package:sqflite/sqflite.dart';
 
+const iosBundleIdentifier = "com.example.your.bundle.id";
+
 /// Class to read data from React Native AsyncStorage.
 ///
 /// Delegates to either [AsyncStorageAndroid] or [AsyncStorageIOS], as storage
@@ -164,8 +166,8 @@ class AsyncStorageIOS implements AsyncStorageReader {
     // Storing data in the Documents directory should be avoided, but in
     // this case we need to access it to port data from the legacy React Native
     // app.
-    final docDir = await getApplicationDocumentsDirectory();
-    return Directory('${docDir.path}/$_iosDataDirectory');
+    final docDir = await getApplicationSupportDirectory();
+    return Directory('${docDir.path}/$iosBundleId/$_iosDataDirectory');
   }
 
   Future<File> _asyncStorageFile(String filename) async {
